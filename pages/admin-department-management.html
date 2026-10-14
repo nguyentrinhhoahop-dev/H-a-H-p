@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Phòng ban | OnboardAI</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+  <div class="app-container">
+    <aside class="app-sidebar" id="app-sidebar"></aside>
+
+    <div class="app-main">
+      <header class="app-topbar" id="app-topbar"></header>
+
+      <main class="page-content">
+        <!-- Header trang -->
+        <div class="page-header">
+          <div>
+            <h1 class="page-title">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+              Quản lý Phòng ban & Cơ cấu Tổ chức
+            </h1>
+            <p class="page-subtitle">Thiết lập danh mục các khối phòng ban, phân bổ trưởng bộ phận và quy mô nhân sự hội nhập</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="openAddDeptModal()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Thêm phòng ban mới (C)
+            </button>
+          </div>
+        </div>
+
+        <!-- Bộ lọc & Tìm kiếm -->
+        <div class="filter-bar">
+          <div style="font-weight: 600; font-size: 0.9rem;" id="dept-stats-label">
+            Hiện có 5 phòng ban đang hoạt động
+          </div>
+          <div style="width: 260px;">
+            <input type="text" class="form-control" placeholder="Tìm tên phòng ban, mã..." id="dept-search-input" onkeyup="renderDepartments()" />
+          </div>
+        </div>
+
+        <!-- Lưới danh sách các phòng ban -->
+        <div id="departments-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+          <!-- Sẽ render bằng JS -->
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal Tạo mới / Sửa Phòng ban (C/U) -->
+  <div class="modal-overlay" id="dept-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="dept-modal-title">Thêm Phòng Ban Mới</h3>
+        <button class="modal-close-btn" onclick="UI.closeModal('dept-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="dept-form">
+          <input type="hidden" id="dept-edit-id" />
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Tên phòng ban</label>
+              <input type="text" class="form-control" id="form-dept-name" placeholder="Ví dụ: Kiểm toán & Tuân thủ" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mã viết tắt</label>
+              <input type="text" class="form-control" id="form-dept-code" placeholder="AUDIT" required />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Trưởng bộ phận (Lead/Manager)</label>
+              <input type="text" class="form-control" id="form-dept-head" placeholder="Họ và tên" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email liên hệ</label>
+              <input type="email" class="form-control" id="form-dept-email" placeholder="manager@techcorp.vn" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Mô tả chức năng & nhiệm vụ</label>
+            <textarea class="form-control" id="form-dept-desc" rows="3" placeholder="Ghi chú chức năng nghiệp vụ chính của phòng ban..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="UI.closeModal('dept-modal')">Hủy</button>
+        <button class="btn btn-primary" onclick="submitDeptForm()">Lưu phòng ban</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/storage.js"></script>
+  <script src="../js/ui.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      UI.initLayout("admin-department-management.html", "Quản lý Phòng ban");
+      renderDepartments();
+    });
+
+    function renderDepartments() {
+      const search = document.getElementById("dept-search-input").value.toLowerCase().trim();
+      let depts = StorageManager.getDepartments();
+
+      if (search) {
+        depts = depts.filter(d => 
+          d.name.toLowerCase().includes(search) || 
+          d.code.toLowerCase().includes(search) ||
+          d.headName.toLowerCase().includes(search)
+        );
+      }
+
+      document.getElementById("dept-stats-label").textContent = `Hiện có ${depts.length} phòng ban đang hoạt động`;
+      const grid = document.getElementById("departments-grid");
+
+      if (depts.length === 0) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column: 1 / -1;">
+            <div class="empty-icon">🏢</div>
+            <div class="empty-title">Không tìm thấy phòng ban nào</div>
+            <p class="empty-desc">Thử tìm kiếm với tên khác hoặc bấm "Thêm phòng ban mới".</p>
+          </div>
+        `;
+        return;
+      }
+
+      grid.innerHTML = depts.map(d => `
+        <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+              <span class="badge badge-neutral" style="font-weight: 700; font-size: 0.8rem; background: #e2e8f0;">${d.code}</span>
+              <span class="badge badge-info">${d.activeOnboardingCount || 0} đang Onboarding</span>
+            </div>
+
+            <h3 style="font-size: 1.15rem; font-weight: 700; color: #1e293b; margin-bottom: 0.4rem;">
+              ${d.name}
+            </h3>
+            <span class="badge ${d.status === "inactive" ? "badge-neutral" : "badge-success"}">
+              ${d.status === "inactive" ? "Đã vô hiệu hóa" : "Đang hoạt động"}
+            </span>
+
+            <p style="font-size: 0.85rem; color: #64748b; line-height: 1.4; margin-bottom: 1rem;">
+              ${d.description}
+            </p>
+
+            <div style="background: #f8fafc; padding: 0.75rem; border-radius: var(--radius-md); font-size: 0.8rem; margin-bottom: 1rem;">
+              <div>👤 <strong>Trưởng phòng:</strong> ${d.headName}</div>
+              <div style="color: var(--text-muted);">📧 ${d.headEmail || 'lead@techcorp.vn'}</div>
+              <div style="margin-top: 3px;">👥 <strong>Quy mô:</strong> ${d.memberCount || 10} thành viên chính thức</div>
+            </div>
+          </div>
+
+          <div style="border-top: 1px solid var(--border-light); padding-top: 0.75rem; display: flex; justify-content: flex-end; gap: 0.4rem;">
+            <button class="btn btn-outline btn-sm" onclick="editDeptModal('${d.id}')">Sửa</button>
+            <button
+               class="btn btn-outline btn-sm"
+               onclick="toggleDeptStatus('${d.id}')">
+              ${d.status === "inactive" ? "Kích hoạt lại" : "Vô hiệu hóa"}
+            </button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function openAddDeptModal() {
+      document.getElementById("dept-modal-title").textContent = "Thêm Phòng Ban Mới";
+      document.getElementById("dept-edit-id").value = "";
+      document.getElementById("dept-form").reset();
+      UI.openModal("dept-modal");
+    }
+
+    function editDeptModal(deptId) {
+      const d = StorageManager.getDepartments().find(item => item.id === deptId);
+      if (!d) return;
+
+      document.getElementById("dept-modal-title").textContent = "Chỉnh sửa Phòng Ban";
+      document.getElementById("dept-edit-id").value = d.id;
+      document.getElementById("form-dept-name").value = d.name;
+      document.getElementById("form-dept-code").value = d.code;
+      document.getElementById("form-dept-head").value = d.headName;
+      document.getElementById("form-dept-email").value = d.headEmail || "";
+      document.getElementById("form-dept-desc").value = d.description || "";
+
+      UI.openModal("dept-modal");
+    }
+
+    function submitDeptForm() {
+      const editId = document.getElementById("dept-edit-id").value;
+      const name = document.getElementById("form-dept-name").value.trim();
+      const code = document.getElementById("form-dept-code").value.trim().toUpperCase();
+      const headName = document.getElementById("form-dept-head").value.trim();
+      const headEmail = document.getElementById("form-dept-email").value.trim();
+      const desc = document.getElementById("form-dept-desc").value.trim();
+
+      if (!name || !code || !headName) {
+        UI.showToast("Thiếu thông tin", "Vui lòng nhập tên phòng ban, mã viết tắt và tên trưởng bộ phận.", "warning");
+        return;
+      }
+
+      if (editId) {
+        StorageManager.updateDepartment(editId, {
+          name, code, headName, headEmail, description: desc
+        });
+        UI.showToast("Cập nhật thành công", "Đã lưu thay đổi phòng ban.", "success");
+      } else {
+        StorageManager.addDepartment({
+          name, code, headName, headEmail, description: desc, memberCount: 1, activeOnboardingCount: 0
+        });
+        UI.showToast("Tạo thành công", "Đã bổ sung phòng ban vào sơ đồ tổ chức.", "success");
+      }
+
+      UI.closeModal("dept-modal");
+      renderDepartments();
+    }
+    function toggleDeptStatus(deptId) {
+  const dept = StorageManager.getDepartments().find(d => d.id === deptId);
+  if (!dept) return;
+
+  const isActive = dept.status !== "inactive";
+  const nextStatus = isActive ? "inactive" : "active";
+  const action = isActive ? "vô hiệu hóa" : "kích hoạt lại";
+
+  UI.showConfirm(
+    isActive ? "Vô hiệu hóa phòng ban" : "Kích hoạt lại phòng ban",
+    `Bạn có chắc muốn ${action} "${dept.name}" không?`,
+    () => {
+      StorageManager.updateDepartment(deptId, { status: nextStatus });
+      UI.showToast(
+        isActive ? "Đã vô hiệu hóa" : "Đã kích hoạt lại",
+        `Phòng ban "${dept.name}" đã được ${action}.`,
+        isActive ? "info" : "success"
+      );
+      renderDepartments();
+    }
+  );
+}
+  </script>
+</body>
+</html>
+
